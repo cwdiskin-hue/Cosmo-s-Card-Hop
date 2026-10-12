@@ -37,3 +37,8 @@ leaderboard calls through `/.proxy/supabase`. In the Discord Developer Portal ->
   - `/supabase` -> `inytasopnpshomgmdcbl.supabase.co`
 - Launch from a voice channel with the rocket (Activities) icon.
 Application ID used by the page: 1559250192220426452
+
+## Name moderation
+Run `supabase_moderation.sql` once in the Supabase SQL Editor. It blocks inappropriate names, links, emails and long
+number strings (with look-alike swaps like sh1t), adds a `hidden` tickbox on `scores` to hide any entry, and a
+`blocked_words` table you can edit to add words.

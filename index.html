@@ -1182,7 +1182,7 @@ if(lbForm)lbForm.addEventListener('submit',async ev=>{
   try{localStorage.setItem('cosmo-name',name);}catch(e){}
   try{
     const r=await fetch(LBC.url+'/rest/v1/rpc/submit_score',{method:'POST',headers:lbHeaders(),body:JSON.stringify({p_name:name,p_score:score,p_dist:Math.floor(dist),p_cards:cardCount,p_secs:Math.round(runSecs)})});
-    if(!r.ok)throw 0;
+    if(!r.ok){let t='';try{t=await r.text();}catch(_){}if(/name not allowed/i.test(t)){lbGo.disabled=false;lbMsg.textContent='That name isn\'t allowed';return;}throw 0;}
     lbSent=true;lbMsg.textContent='Posted!';await lbFetch();
     setTimeout(()=>{if(lbSent)lbForm.hidden=true;},1400);
   }catch(e){lbGo.disabled=false;lbMsg.textContent='Could not post. Try again';}
