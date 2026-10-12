@@ -28,3 +28,12 @@ Files: `index.html` (the whole game), `supabase.sql` (leaderboard database).
 ## 3. Check it works
 Play, lose, type a name, press **Post score**. Rows appear in Supabase under **Table Editor → scores**.
 Delete any test rows there. Scores under 3 seconds of play are rejected on purpose.
+
+## Discord Activity
+The page detects when Discord opens it (Discord adds `?frame_id=`) and then talks to Discord and routes
+leaderboard calls through `/.proxy/supabase`. In the Discord Developer Portal -> your app -> Activities:
+- Enable Activities, then under **URL Mappings** add:
+  - `/`         -> the host that serves this page (e.g. `cwdiskin-hue.github.io/Cosmo-s-Card-Hop`)
+  - `/supabase` -> `inytasopnpshomgmdcbl.supabase.co`
+- Launch from a voice channel with the rocket (Activities) icon.
+Application ID used by the page: 1559250192220426452

@@ -103,6 +103,37 @@ html.fs,html.fs body{overflow:hidden;height:100%;overscroll-behavior:none}
 </main>
 
 <script>
+/* Discord Activity support. Active only when Discord opens the page (it adds ?frame_id=...).
+   A tiny version of Discord's Embedded App SDK handshake, so no outside library is needed. */
+(function(){
+  var CLIENT_ID='1559250192220426452';
+  var q=new URLSearchParams(location.search);
+  if(!q.get('frame_id'))return;
+  var D=window.COSMO_DISCORD={on:true,ready:false,open:function(){}};
+  document.documentElement.classList.add('in-discord');
+  var src=window.parent.opener||window.parent,origin=document.referrer||'*';
+  var OK=[location.origin,'https://discord.com','https://discordapp.com','https://ptb.discord.com','https://ptb.discordapp.com','https://canary.discord.com','https://canary.discordapp.com','https://staging.discord.co','https://pax.discord.com','null'];
+  var pending={};
+  function uid(){try{return crypto.randomUUID();}catch(e){return 'n'+Date.now()+Math.random().toString(16).slice(2);}}
+  function send(cmd,args){var nonce=uid();src.postMessage([1,{cmd:cmd,args:args,nonce:nonce}],origin);return new Promise(function(res,rej){pending[nonce]={res:res,rej:rej};});}
+  window.addEventListener('message',function(e){
+    if(OK.indexOf(e.origin)<0)return;var t=e.data;if(!Array.isArray(t)||t[0]!==1||!t[1])return;var d=t[1];
+    if(d.cmd==='DISPATCH'){if(d.evt==='READY')D.ready=true;return;}
+    var p=d.nonce&&pending[d.nonce];if(!p)return;delete pending[d.nonce];
+    if(d.evt==='ERROR')p.rej(d.data);else p.res(d);
+  });
+  D.open=function(url){return send('OPEN_EXTERNAL_LINK',{url:url}).catch(function(){});};
+  var hs={v:1,encoding:'json',client_id:CLIENT_ID,frame_id:q.get('frame_id')};
+  var mv=parseInt((q.get('mobile_app_version')||'').split('.')[0],10);
+  if(q.get('platform')!=='mobile'||mv>=250)hs.sdk_version='2.5.0';
+  src.postMessage([0,hs],origin);
+  document.addEventListener('click',function(e){
+    var a=e.target&&e.target.closest&&e.target.closest('a[href^="http"]');if(!a)return;
+    e.preventDefault();D.open(a.href);
+  },true);
+})();
+</script>
+<script>
 /* Online leaderboard (Supabase). Fill these two values in after setup; leave empty to disable. */
 window.COSMO_LB={url:'https://inytasopnpshomgmdcbl.supabase.co',key:'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImlueXRhc29wbnBzaG9tZ21kY2JsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTE4MjAyMzMsImV4cCI6MjEwNzM5NjIzM30.E2qZCJgsHkEiK1QimUeigjIBd_hJaHxDAvAIhXrrF7s'};
 </script>
@@ -1120,7 +1151,7 @@ function drawDead(){
 
 
 /* ---------- online leaderboard (Supabase REST, optional) ---------- */
-const LBC=window.COSMO_LB||{};const lbOn=!!(LBC.url&&LBC.key);
+const LBC=window.COSMO_LB||{};if(window.COSMO_DISCORD&&LBC.url)LBC.url=location.origin+'/.proxy/supabase';const lbOn=!!(LBC.url&&LBC.key);
 let lbRows=[],lbLoaded=false,lbSent=false;
 const lbForm=document.getElementById('lbform'),lbName=document.getElementById('lbname'),lbMsg=document.getElementById('lbmsg'),lbGo=document.getElementById('lbgo');
 function lbHeaders(){return {apikey:LBC.key,Authorization:'Bearer '+LBC.key,'Content-Type':'application/json'};}
