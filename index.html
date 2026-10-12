@@ -83,15 +83,17 @@ html.fs,html.fs body{overflow:hidden;height:100%;overscroll-behavior:none}
         <button type="submit" id="lbgo">Post score</button>
         <span class="lbmsg" id="lbmsg" role="status"></span>
       </form>
-      <div class="fsbar" id="fsbar"><button id="fsPause" type="button">Pause</button><button id="fsExit" type="button">Exit</button></div>
+      <div class="fsbar" id="fsbar"><button id="fsPause" type="button">Pause</button><button id="fsMenu" type="button">Menu</button><button id="fsExit" type="button">Exit</button></div>
     </div>
   </div>
   <div class="keys" aria-label="Controls">
     <button id="fs" type="button">Full screen</button>
+    <button id="menuBtn" type="button" hidden>Main menu</button>
     <span class="kb"><kbd>←</kbd><kbd>→</kbd> move</span>
     <span class="kb"><kbd>Space</kbd> hop, hold to go higher</span>
     <span class="kb"><kbd>Shift</kbd> booster</span>
     <span class="kb"><kbd>P</kbd> pause</span>
+    <span class="kb"><kbd>Q</kbd> main menu</span>
     <span class="kb"><kbd>F</kbd> full screen</span>
     <button id="snd" type="button">Sound on</button>
   </div>
@@ -288,6 +290,7 @@ window.addEventListener('keydown',e=>{
     }
   }else if(e.code==='Enter'){if(idle())tryStart();else if(state==='paused')setPause(false);}
   else if(e.code==='KeyP'||e.code==='Escape'){setPause(state==='play');}
+  else if(e.code==='KeyQ'&&!e.repeat){toMenu();}
   else if(e.code==='KeyM')toggleMute();
   else if(e.code==='KeyF'&&!e.repeat)toggleFull();
 });
@@ -310,6 +313,15 @@ function bindBtn(id,act){
 bindBtn('bL','left');bindBtn('bR','right');bindBtn('bJ','jump');bindBtn('bB','boost');
 function toggleMute(){muted=!muted;$('snd').textContent=muted?'Sound off':'Sound on';}
 $('snd').addEventListener('click',()=>{ensureAudio();toggleMute();});
+function toMenu(){
+  if(state==='title')return;
+  keys.clear();for(const k in touch)touch[k]=false;
+  if(typeof lbForm!=='undefined'&&lbForm)lbForm.hidden=true;
+  resetWorld();p=makePlayer();cam={x:-100};ensureWorld();
+  wind.state='idle';warns=[];stars=[];flash=0;shake=0;
+  state='title';
+  if(typeof lbFetch==='function')lbFetch();
+}
 function setPause(on){
   if(on&&state==='play'){state='paused';keys.clear();for(const k in touch)touch[k]=false;}
   else if(!on&&state==='paused'){state='play';}
@@ -1193,7 +1205,7 @@ function render(){
     ctx.fillStyle='rgba(13,6,23,.6)';ctx.fillRect(0,0,W,H);
     panel(W/2-190,190,380,130);
     txt('PAUSED',W/2,252,44,'#ffd24a','center',{outline:10});
-    txt('Press P, Space or tap to resume',W/2,292,13,'#ebe8e0','center',{mono:1,outline:4});
+    txt('P, Space or tap to resume   ·   Q main menu',W/2,292,13,'#ebe8e0','center',{mono:1,outline:4});
   }
 }
 
@@ -1240,6 +1252,11 @@ function exitFull(){
 function toggleFull(){full?exitFull():enterFull();}
 $('fs').addEventListener('click',()=>{ensureAudio();toggleFull();});
 $('fsExit').addEventListener('click',exitFull);
+const menuBtn=$('menuBtn');
+menuBtn.addEventListener('click',()=>{toMenu();try{cv.focus();}catch(_){}});
+$('fsMenu').addEventListener('click',()=>toMenu());
+let menuVis=null;
+setInterval(()=>{const v=state!=='title';if(v!==menuVis){menuVis=v;menuBtn.hidden=!v;}{const fm=$('fsMenu');if(fm&&fm.style)fm.style.display=v?'':'none';}},150);
 $('fsPause').addEventListener('click',()=>{if(state==='play')setPause(true);else if(state==='paused')setPause(false);});
 document.addEventListener('fullscreenchange',()=>{if(full&&usedApi&&!document.fullscreenElement)exitFull();});
 window.addEventListener('resize',orient);
