@@ -218,12 +218,19 @@ function genFlat(){
   const top=clamp(gTop+rnd(-45,40),340,415),w=rnd(340,620);
   rockWithFeatures(gx,w,top,120);gx+=w;gTop=top;
 }
+function mkMove(x,y,w,ax,amp,spd){
+  return {x,y,w,bx:x,by:y,mv:{ax,amp,spd,ph:rnd(0,6.28)},px:x,py:y};
+}
 function genGap(){
   const d=diff(gx),gap=Math.min(225,rnd(90,150+70*d));
   let nt=clamp(gTop+rnd(-60,40),340,415);
   if(gap>170&&gTop-nt>40)nt=gTop-40;
   if(gap>140&&(gap>185||Math.random()<.35)){
-    plats.push({x:gx+gap/2-45,y:(gTop+nt)/2-10,w:90});
+    const gy=(gTop+nt)/2-10;
+    if(gx>1100&&Math.random()<.75){
+      const pw=90,amp=Math.max(20,(gap-16-pw)/2);
+      plats.push(mkMove(gx+gap/2-pw/2,gy,pw,'x',amp,rnd(.9,1.25)));
+    }else plats.push({x:gx+gap/2-45,y:gy,w:90});
   }
   if(Math.random()<.6)cardArc(gx+gap/2,Math.min(gTop,nt)-30,3,40,70);
   const w=rnd(300,520);
@@ -234,9 +241,20 @@ function genIslands(){
   let x=gx,py=gTop;
   for(let i=0;i<n;i++){
     x+=rnd(70,120+30*d);
-    const pw=rnd(90,140),y=clamp(py+rnd(-70,45),200,410);
-    plats.push({x,y,y0:y,w:pw,crystal:gx>2600&&Math.random()<.5,trig:false,t:0,drop:false,vy:0});if(Math.random()<.55)cardRow(x+pw/2,y-30,1,30);
-    x+=pw;py=y;
+    const pw=rnd(90,140);
+    const mvr=gx>1500?Math.random():1;
+    if(mvr<.38){
+      const vert=mvr<.2,amp=vert?rnd(36,55):rnd(34,50);
+      const y=clamp(py+rnd(-60,40),vert?255:210,vert?370:400);
+      if(!vert)x+=amp;
+      plats.push(mkMove(x,y,pw,vert?'y':'x',amp,rnd(.9,1.3)));
+      cardRow(x+pw/2,vert?y-amp-30:y-30,1,30);
+      x+=pw+(vert?0:amp);py=y;
+    }else{
+      const y=clamp(py+rnd(-70,45),200,410);
+      plats.push({x,y,y0:y,w:pw,crystal:gx>2600&&Math.random()<.5,trig:false,t:0,drop:false,vy:0});if(Math.random()<.55)cardRow(x+pw/2,y-30,1,30);
+      x+=pw;py=y;
+    }
   }
   x+=rnd(70,110);
   const top=clamp(py+rnd(0,60),340,415),w=rnd(320,500);
@@ -467,6 +485,12 @@ function circleRect(cx,cy,r,rx,ry,rw,rh){
 /* ---------- main step ---------- */
 function step(dt){
   T+=dt;
+  for(const s of plats){
+    if(!s.mv)continue;
+    const ox=s.x,oy=s.y,m=s.mv,v=Math.sin(T*m.spd+m.ph)*m.amp;
+    s.x=s.bx+(m.ax==='x'?v:0);s.y=s.by+(m.ax==='y'?v:0);
+    if(p.on&&p.surf===s){p.x+=s.x-ox;p.y+=s.y-oy;}
+  }
   p.inv=Math.max(0,p.inv-dt);p.hurt=Math.max(0,p.hurt-dt);p.happy=Math.max(0,p.happy-dt);
   p.blink-=dt;if(p.blink<-.12)p.blink=rnd(2,4.5);
   jumpBuf-=dt;
@@ -507,7 +531,7 @@ function step(dt){
     for(const v of vents)if(Math.abs(v.x-p.x)<110)ok=false;
     for(const g of gates)if(Math.abs(g.x-p.x)<100)ok=false;
     for(const dr of drones)if(Math.abs(dr.x-p.x)<dr.r+70)ok=false;
-    if(s.crystal)ok=false;
+    if(s.crystal||s.mv)ok=false;
     if(ok)safe={x:p.x,y:p.y};
   }
   /* camera */
@@ -725,8 +749,46 @@ function drawRock(r){
   }
   if(r.sulf!==null){ctx.fillStyle='rgba(240,210,80,.45)';ctx.beginPath();ctx.ellipse(x+r.sulf,y+3,46,6,0,0,TAU);ctx.fill();}
 }
+function drawMovePlat(s){
+  const m=s.mv,x=s.x,y=s.y,w=s.w;
+  /* rail showing where it travels */
+  ctx.save();
+  ctx.strokeStyle='rgba(95,242,255,.35)';ctx.lineWidth=3;ctx.setLineDash([6,7]);ctx.lineCap='round';
+  ctx.beginPath();
+  if(m.ax==='x'){ctx.moveTo(s.bx-m.amp+w/2,s.by+6);ctx.lineTo(s.bx+m.amp+w/2,s.by+6);}
+  else{ctx.moveTo(s.bx+w/2,s.by-m.amp+6);ctx.lineTo(s.bx+w/2,s.by+m.amp+6);}
+  ctx.stroke();ctx.setLineDash([]);
+  ctx.fillStyle='rgba(95,242,255,.55)';
+  for(const e of [-1,1]){
+    const ex=m.ax==='x'?s.bx+e*m.amp+w/2:s.bx+w/2,ey=m.ax==='y'?s.by+e*m.amp+6:s.by+6;
+    ctx.beginPath();ctx.arc(ex,ey,4,0,TAU);ctx.fill();
+  }
+  ctx.restore();
+  /* thruster flames */
+  for(const bx of [x+14,x+w-14]){
+    const fl=7+Math.sin(T*30+bx)*2.5;
+    const g=ctx.createLinearGradient(0,y+22,0,y+22+fl+8);g.addColorStop(0,'rgba(95,242,255,.95)');g.addColorStop(1,'rgba(95,242,255,0)');
+    ctx.fillStyle=g;ctx.beginPath();ctx.moveTo(bx-3,y+22);ctx.lineTo(bx+3,y+22);ctx.lineTo(bx,y+22+fl+8);ctx.closePath();ctx.fill();
+  }
+  /* body */
+  ctx.fillStyle='#8f8aa0';
+  for(const bx of [x+14,x+w-14]){ctx.beginPath();ctx.moveTo(bx-6,y+12);ctx.lineTo(bx+6,y+12);ctx.lineTo(bx+3,y+22);ctx.lineTo(bx-3,y+22);ctx.closePath();ctx.fill();ctx.lineWidth=2.5;ctx.strokeStyle=INK;ctx.stroke();}
+  rr(x,y,w,13,6);ctx.fillStyle='#bfeef2';ctx.fill();ctx.lineWidth=3;ctx.strokeStyle=INK;ctx.stroke();
+  rr(x+5,y+4,w-10,3,1.5);ctx.fillStyle='#4fe0c0';ctx.fill();
+  /* direction chevrons */
+  ctx.fillStyle='#14072a';
+  const n=Math.max(2,Math.floor(w/32));
+  for(let i=0;i<n;i++){
+    const cx=x+(i+.5)*w/n,cy=y+9.5,dirn=Math.cos(T*m.spd+m.ph)>=0?1:-1;
+    ctx.beginPath();
+    if(m.ax==='x'){ctx.moveTo(cx-2*dirn,cy-2.4);ctx.lineTo(cx+2*dirn,cy);ctx.lineTo(cx-2*dirn,cy+2.4);}
+    else{ctx.moveTo(cx-2.4,cy+2*dirn);ctx.lineTo(cx,cy-2*dirn);ctx.lineTo(cx+2.4,cy+2*dirn);}
+    ctx.closePath();ctx.fill();
+  }
+}
 function drawPlat(s){
   if(s.crystal){drawCrystalPlat(s);return;}
+  if(s.mv){drawMovePlat(s);return;}
   const {x,y,w}=s;
   ctx.fillStyle='#8f8aa0';
   for(const bx of [x+14,x+w-14]){ctx.beginPath();ctx.moveTo(bx-6,y+12);ctx.lineTo(bx+6,y+12);ctx.lineTo(bx+3,y+22);ctx.lineTo(bx-3,y+22);ctx.closePath();ctx.fill();ctx.lineWidth=2.5;ctx.strokeStyle=INK;ctx.stroke();}
@@ -1301,9 +1363,10 @@ resetWorld();p=makePlayer();cam={x:-100};
 ensureWorld();
 if(typeof location!=='undefined'&&location.hash==='#hz')window.__hz={
  go(x){cam.x=x-340;while(gx<cam.x+W+700)genChunk();},
- pick(kind){const a=kind==='gate'?gates:kind==='drone'?drones:plats.filter(q=>q.crystal);return a.filter(o=>o.x>3300)[0]||null;},
+ pick(kind){const a=kind==='gate'?gates:kind==='drone'?drones:kind==='move'?plats.filter(q=>q.mv):plats.filter(q=>q.crystal);return a.filter(o=>o.x>3300)[0]||null;},
  put(x,y){p.x=x;p.y=y;p.vx=0;p.vy=0;cam.x=x-340;},
  wind(d){wind.state='blow';wind.t=5;wind.dir=d;},
+ me(){return {x:p.x,y:p.y,on:p.on,surf:!!(p.surf&&p.surf.mv),lives};},
  info(){return {gates:gates.length,drones:drones.length,cr:plats.filter(q=>q.crystal).length,gx,state}}
 };
 requestAnimationFrame(t=>{last=t;frame(t);});
